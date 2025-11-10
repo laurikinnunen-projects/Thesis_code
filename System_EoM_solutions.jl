@@ -174,3 +174,31 @@ plot!(p2_lin, t_vals_lin, vz_vals_lin, label="vz")
 
 
 plot(p1_lin, p2_lin, layout=(2,1))
+
+
+
+
+
+
+
+# Testikoodi tavallisen differentiaaliyhtälön ratkaisemiseksi, jolla testasin, että voimat toimivat kuten pitää
+
+#prob_opt = ODEProblem(h!, u_init, tspan, params)
+
+#sol_opt = solve(prob_opt, Rodas5P(), reltol=1e-10, abstol=1e-12, dt=1e-11)
+
+#=vx_vals_opt = sol_opt[1,:]; vy_vals_opt = sol_opt[2,:]; vz_vals_opt = sol_opt[3,:]
+x_vals_opt  = sol_opt[4,:]; y_vals_opt  = sol_opt[5,:]; z_vals_opt  = sol_opt[6,:]
+t_vals_opt  = sol_opt.t
+
+# Plot q(t) for x/y/z linear system with scaling to avoid loss of precision
+p1_opt = plot(t_vals_opt, x_vals_opt, label="x", xlabel="Time (s)", ylabel="Position (m)")
+plot!(p1_opt, t_vals_opt, y_vals_opt, label="y")
+plot!(p1_opt, t_vals_opt, z_vals_opt, label="z")
+
+# Plot v(t) for x/y/z linear system with scaling to avoid loss of precision
+p2_opt = plot(t_vals_opt, vx_vals_opt, label="vx", xlabel="Time (s)", ylabel="Velocity (m/s)")
+plot!(p2_opt, t_vals_opt, vy_vals_opt, label="vy")
+plot!(p2_opt, t_vals_opt, vz_vals_opt, label="vz")
+
+plot(p1_opt, p2_opt, layout=(2,1))=#
