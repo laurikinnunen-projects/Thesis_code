@@ -10,6 +10,7 @@ using ForwardDiff
 using QuadGK
 using StaticArrays
 
+
 # Parameters
 params = (
     a = 0.01,                          # Dimensionless DC parameter
@@ -37,7 +38,7 @@ u_init = vcat(v0, u0)
 
 
 # Time span, adjustbale with the time step
-tspan = (0.0, 5e-2)                   
+tspan = (0.0, 5)                   
 
 # Rayleigh range for Gaussian beam
 function w_of_z1(x, w01, λ, n)
@@ -61,10 +62,6 @@ function Eopt_total_sqrd(pos::AbstractVector, p)
     # Waist function 
     wz1 = w_of_z1(x, w01, λ, n)
     wz2 = w_of_z2(x, w02, λ, n)
-
-    # Inverse of the invariant part of Rayleigh range for gradients
-    inv_zR1 = λ / (π * w01^2 * n)
-    inv_zR2 = λ / (π * w02^2 * n)
 
     # Rayleigh range
     zR1 = π * w01^2 * n / λ
@@ -101,22 +98,23 @@ function Eopt_total_sqrd(pos::AbstractVector, p)
     # The parts of the field thats are left after squaring and will be taken gradient over
     E2_opt = ((E01 * w01/wz1)*exp1)^2 + ((E02 * w02/wz2)* exp2)^2
 
-    # dE^2_opt / dx calculated analytically
-    dE1_2_x = E01^2 * (((w01/wz1)^2) * (4 * r_sq * x * inv_zR1^2) / (w01^2 * (1 + (inv_zR1 * x)^2)^2) * exp1^2 - exp1^2 *((2 * inv_zR1^2 * x) / (1 + (inv_zR1 * x)^2)^2))
-    dE2_2_x = E02^2 * (((w02/wz2)^2) * (4 * r_sq * x * inv_zR2^2) / (w02^2 * (1 + (-inv_zR2 * x)^2)^2) * exp2^2 - exp2^2 *((2 * inv_zR2^2 * x) / (1 + (-inv_zR2 * x)^2)^2))
-    dE2_x = dE1_2_x + dE2_2_x
-    
-    # dE^2_opt / dy calculated analytically
-    dE1_2_y = E01^2 * (w01/wz1)^2 * (- 4 * y / w01^2 * (1 + (inv_zR1 * x)^2)) * exp1^2
-    dE2_2_y = E02^2 * (w02/wz2)^2 * (- 4 * y / w02^2 * (1 + (-inv_zR2 * x)^2)) * exp2^2
-    dE2_y = dE1_2_y + dE2_2_y
+    # Analytically calculated gradient comonents
+    dE1_x = -E01^2 * (2 * zR1^2* x) / (x^2 + zR1^2)^2 * (1 - (2 * r_sq * zR1^2) / (w01^2 * (x^2 + zR1^2)))* exp(-(2 * r_sq * zR1^2) / (w01^2 * (x^2 + zR1^2)))
+    dE2_x = -E02^2 * (2 * zR2^2* x) / (x^2 + zR2^2)^2 * (1 - (2 * r_sq * zR2^2) / (w02^2 * (x^2 + zR2^2)))* exp(-(2 * r_sq * zR2^2) / (w02^2 * (x^2 + zR2^2)))
+    # gradient x components with factor half from time averaging
+    avg_dE_x = 0.5 * (dE1_x + dE2_x)
 
-    # dE^2_opt / dz calculated analytically
-    dE1_2_z = E01^2 * (w01/wz1)^2 * (- 4 * z / w01^2 * (1 + (inv_zR1 * x)^2)) * exp1^2
-    dE2_2_z = E02^2 * (w02/wz2)^2 * (- 4 * z / w02^2 * (1 + (-inv_zR2 * x)^2)) * exp2^2
-    dE2_z = dE1_2_z + dE2_2_z
+    dE1_y = -E01^2 * (4 * y * zR1^2) / (w01^2(x^2 + zR1^2)) * exp(-(2 * r_sq * zR1^2) / (w01^2 * (x^2 + zR1^2)))
+    dE2_y = -E02^2 * (4 * y * zR2^2) / (w02^2(x^2 + zR2^2)) * exp(-(2 * r_sq * zR2^2) / (w02^2 * (x^2 + zR2^2)))
+    # gradient z components with factor half from time averaging
+    avg_dE_y = 0.5 * (dE1_y + dE2_y)
 
-    return SVector(dE2_x, dE2_y, dE2_z)
+    dE1_z = -E01^2 * (4 * z * zR1^2) / (w01^2(x^2 + zR1^2)) * exp(-(2 * r_sq * zR1^2) / (w01^2 * (x^2 + zR1^2)))
+    dE2_z = -E02^2 * (4 * z * zR2^2) / (w02^2(x^2 + zR2^2)) * exp(-(2 * r_sq * zR2^2) / (w02^2 * (x^2 + zR2^2)))
+    # gradient z components with factor half from time averaging
+    avg_dE_z = 0.5 * (dE1_z + dE2_z)
+     
+    return @SVector[avg_dE_x,avg_dE_y,avg_dE_z]
 end
 
 
@@ -139,15 +137,15 @@ function h!(du, u, p, t)
     Fy_rf = - m * w_rf^2 / 4 * (a - 2q * cos(w_rf * t)) * y
     Fz_rf = - m * w_rf^2 / 4 * (a - 0 * cos(w_rf * t)) * z 
 
-    # Force = 1/2 α ∇⟨E^2⟩, stores the svector array values to the variable as ∇E2 = dE2_x, dE2_y, dE2_z
+    # Force = 1/2 α ∇⟨E^2⟩ 
     ∇E2 = Eopt_total_sqrd(@SVector[x, y, z], p)
     
-    # Assign to each force component the corresponding gradient component from the statevector and multiply by 1/2*a_p
-    Fx_opt, Fy_opt, Fz_opt = 0.5 * a_p .* ∇E2 
+    # Assign to each force component the corresponding gradient component from the statevector
+    Fx_opt, Fy_opt, Fz_opt = 0.5 * a_p * ∇E2
 
     # The scattering force for the dipole approimation still needed here from the Poyinting vector
     
-    # Accelerations and the damping # RF field commented out
+    # Accelerations and the damping
     du[1] = (#=Fx_rf + =#Fx_opt) / m - Γ * vx
     du[2] = (#=Fy_rf + =#Fy_opt) / m - Γ * vy
     du[3] = (#=Fz_rf + =#Fz_opt) / m - Γ * vz
@@ -189,3 +187,4 @@ plot(p1_lin, p2_lin, layout=(2,1))
 
 #savefig(p1_lin, "Linear_trap_q(t)_Opt.png")  
 #savefig(p2_lin, "Linear_trap_v(t)_Opt.png") 
+
