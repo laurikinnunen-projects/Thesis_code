@@ -13,12 +13,12 @@ p = (
     m = 1,                              # Mass [kg]
     w_rf = 2π * 2.0,                    # Frequency
     gamma = 2,                        # Damping coefficient
-    D = 1                              # Squared noise ecoefficient
+    D = 1                             # Squared noise ecoefficient
 )
 # Initial u values, time span and time range
 u_init = [1,0]
 t_span = (0.0, 10/(2*pi))
-t_range = range(0.0,10/(2*pi), step = 0.01)
+#t_range = range(0.0,10/(2*pi), step = 0.01)
 dt = 1e-4
 
 # Random seed and Wiener process
@@ -47,7 +47,9 @@ prob = SDEProblem(h!, g!, u_init, t_span, p, noise = Wproc)
 sol = solve(prob, EM(), adaptive = false, dt = dt)  # Euler-Maruyama method
 
 # Wiener increments
-dw = sol.W.dW
+t_range = sol.t # Take the same time range for the analytical solution as is used for the numerical
+# sol.W.u = [w(t1), w(t2),...,w(tN)] -> diff(sol.W.u) = [w(t2)-w(t1), w(t3)-w(t2),...,w(tN)-w(tN-1)] ->length(diff(sol.W.u)) = N-1
+dw = diff(sol.W.u)
 
 # Analytical noisy damped harmonic oscillator solution, deterministic part
 function q_deterministic(u_init, t, p)
@@ -111,11 +113,11 @@ function p_noise(dw, t, p)
 end
  
 q_det = q_deterministic(u_init, t_range, p)
-q_sto = q_noise(W, t_range, p)
+q_sto = q_noise(dw, t_range, p)
 q_ana = q_det + q_sto                           # Total semi-analytical positional solution
 
 p_det = p_deterministic(u_init, t_range, p)
-p_sto = p_noise(W, t_range, p)
+p_sto = p_noise(dw, t_range, p)
 p_ana = p_det + p_sto                           # Total semi-analytical momentum solution
 
 # Plot
